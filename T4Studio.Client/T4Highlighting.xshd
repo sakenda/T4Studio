@@ -1,0 +1,34 @@
+<SyntaxDefinition name="T4" extensions=".tt" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+    
+    <Color name="T4Tag" foreground="#569CD6" fontWeight="bold" /> <Color name="OutputTag" foreground="#4EC9B0" fontWeight="bold" /> <Color name="DirectiveTag" foreground="#9B9B9B" /> <Color name="DirectiveKey" foreground="#CE9178" /> <Color name="StaticText" foreground="#DCDCDC" /> <RuleSet>
+        <Span multiline="true">
+            <Begin color="OutputTag">&lt;#=</Begin>
+            <End color="OutputTag">#&gt;</End>
+            <RuleSet>
+                <Import ruleSet="C#/" />
+            </RuleSet>
+        </Span>
+
+        <Span multiline="true">
+            <Begin color="T4Tag">&lt;#\+?</Begin> <End color="T4Tag">#&gt;</End>
+            <RuleSet>
+                <Import ruleSet="C#/" />
+            </RuleSet>
+        </Span>
+
+        <Span multiline="true">
+            <Begin color="DirectiveTag">&lt;#@</Begin>
+            <End color="DirectiveTag">#&gt;</End>
+            <RuleSet>
+                <Keywords color="DirectiveKey">
+                    <Word>template</Word><Word>import</Word><Word>assembly</Word><Word>output</Word>
+                </Keywords>
+                <Span foreground="#92CAF4">
+                    <Begin>"</Begin><End>"</End>
+                </Span>
+            </RuleSet>
+        </Span>
+
+        <Rule color="StaticText">[\s\S]</Rule>
+    </RuleSet>
+</SyntaxDefinition>
