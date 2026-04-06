@@ -1,8 +1,5 @@
-﻿using ICSharpCode.AvalonEdit;
-using ICSharpCode.AvalonEdit.Document;
-using ICSharpCode.AvalonEdit.Highlighting;
+﻿using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Highlighting.Xshd;
-using ICSharpCode.AvalonEdit.Rendering;
 using MaterialDesignThemes.Wpf;
 using Mono.TextTemplating;
 using System.Reflection;
@@ -23,14 +20,14 @@ public partial class MainWindow : Window
     private string? _currentFilePath = null;
     private bool _isDirty = false;
     private string _appName = "T4 Studio";
-
+    private bool _isDarkTheme = true;
+    
     private readonly TemplateGenerator _generator = new TemplateGenerator();
 
     public MainWindow()
     {
         InitializeComponent();
-        LoadHighlighting();
-        ApplyEditorTheme(true);
+        ApplyTheme();
         UpdateTitle();
 
         this.PreviewKeyDown += (s, e) =>
@@ -94,36 +91,32 @@ public partial class MainWindow : Window
         }
     }
 
-    private void LoadHighlighting()
+    private void SwitchEditorTheme(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            // Sicherstellen, dass C# Highlighting für den Import im XSHD bereitsteht
-            var csharpDefinition = HighlightingManager.Instance.GetDefinition("C#");
-            using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("T4Studio.Client.T4Highlighting.xshd"))
-            {
-                if (stream != null)
-                {
-                    using (var reader = new XmlTextReader(stream))
-                    {
-                        // Hier geben wir den HighlightingManager mit, damit er "C#/" auflösen kann
-                        EditorInput.SyntaxHighlighting = HighlightingLoader.Load(reader, HighlightingManager.Instance);
-                    }
-                }
-            }
+        _isDarkTheme = !_isDarkTheme;
+        ApplyTheme();
+    }
 
-            EditorInput.Options.ShowSpaces = false;
-            EditorInput.Options.ShowTabs = false;
-
-            EditorInput.Options.ShowColumnRuler = true;
-            EditorInput.FontFamily = new FontFamily("Consolas");
-            EditorInput.FontSize = 14;
-            EditorInput.LineNumbersForeground = Brushes.DimGray;
-        }
-        catch (Exception ex)
+    private void ApplyTheme()
+    {
+        var editors = new[] { EditorInput, EditorOutput };
+        foreach (var editor in editors)
         {
-            MessageBox.Show("Highlighting konnte nicht geladen werden: " + ex.Message);
+            editor.Foreground = Brushes.Black;
+            editor.Options.HighlightCurrentLine = true;
+            editor.Options.IndentationSize = 4;
+            editor.Options.ShowColumnRuler = false;
+            editor.Options.ShowSpaces = false;
+            editor.Options.ShowTabs = false;
+            editor.LineNumbersForeground = Brushes.DarkGray;
+            editor.FontFamily = new FontFamily("Consolas");
+            editor.FontSize = 14;
         }
+
+        var paletteHelper = new PaletteHelper();
+        var theme = paletteHelper.GetTheme();
+        theme.SetBaseTheme(_isDarkTheme ? BaseTheme.Dark : BaseTheme.Light);
+        paletteHelper.SetTheme(theme);
     }
 
     private void LoadDebugTemplate_Click(object sender, RoutedEventArgs e)
@@ -146,20 +139,36 @@ public partial class MainWindow : Window
                         <#@ template language="C#" #>
                         <#@ import namespace="System.Collections.Generic" #>
                         <# 
-                            var properties = new List<string> { "Id", "Username", "Email", "CreatedAt" };
+                            var properties = new Dictionary<string, string>
+                            {
+                            	{ "Id", "int" },
+                            	{ "Username", "string" },
+                            	{ "Email", "string" },
+                            	{ "CreatedAt", "DateTime" }
+                        	};
                         #>
+                        namespace Test;
+
                         public class UserProfile 
                         {
-                        <# foreach (var prop in properties) { #>
-                            public <#= prop == "Id" ? "int" : "string" #> <#= prop #> { get; private set; }
-                        <# } #>
+                        <#
+                        foreach (var kvp in properties)
+                        {
+                        	var property = $"public {kvp.Value} {kvp.Key} {{ get; set; }}";
+                        #>
+                            <#= property #>
+                        <#
+                        }
+                        #>
 
-                        	private UserProfile() { }
+                        	private UserProfile()
+                        	{
+                        	}
 
                         	/// <summary>
                         	/// Creates a new User
                         	/// </summary>
-                        	public static UserProfile Create(int id, string username, string email, string createdAt)
+                        	public static UserProfile Create(int id, string username, string email, DateTime createdAt)
                         	{
                         		return new UserProfile()
                         		{
@@ -338,46 +347,6 @@ public partial class MainWindow : Window
             _isDirty = false;
             UpdateTitle();
         }
-    }
-
-    private void ThemeDark_Click(object sender, RoutedEventArgs e)
-    {
-        ModifyTheme(BaseTheme.Dark);
-        ApplyEditorTheme(true);
-    }
-
-    private void ThemeLight_Click(object sender, RoutedEventArgs e)
-    {
-        ModifyTheme(BaseTheme.Light);
-        ApplyEditorTheme(false);
-    }
-
-    private static void ModifyTheme(BaseTheme mode)
-    {
-        var paletteHelper = new PaletteHelper();
-        var theme = paletteHelper.GetTheme();
-        theme.SetBaseTheme(mode);
-        paletteHelper.SetTheme(theme);
-    }
-
-    private void ApplyEditorTheme(bool isDark)
-    {
-        if (isDark)
-        {
-            EditorInput.Background = System.Windows.Media.Brushes.Transparent;
-            EditorInput.Foreground = System.Windows.Media.Brushes.White;
-            EditorOutput.Foreground = System.Windows.Media.Brushes.LightGray;
-            // Zeilennummern-Farbe
-            EditorInput.LineNumbersForeground = System.Windows.Media.Brushes.DarkGray;
-        }
-        else
-        {
-            EditorInput.Foreground = System.Windows.Media.Brushes.Black;
-            // ... usw für Light Mode
-        }
-
-        EditorInput.LineNumbersForeground = System.Windows.Media.Brushes.DimGray;
-        EditorOutput.LineNumbersForeground = System.Windows.Media.Brushes.DimGray;
     }
 
     private bool IsTemplateValid(string code)
