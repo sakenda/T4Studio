@@ -3,139 +3,226 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:T4Studio.Client"
+        xmlns:local="clr-namespace:T4Studio.Client.Editor"
         xmlns:avalonEdit="http://icsharpcode.net/sharpdevelop/avalonedit"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        d:DataContext="{d:DesignInstance local:EditorViewModel, IsDesignTimeCreatable=True}"
         mc:Ignorable="d"
-        Title="T4 Forge - Studio"
-        Height="800"
-        Width="1000"
+        Title="{Binding WindowTitle}"
+        Height="900"
+        Width="1400"
         Style="{StaticResource MaterialDesignWindow}"
-        
         TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
         Background="{DynamicResource MaterialDesign.Brush.Background}"
-        TextElement.FontWeight="Medium"
-        TextElement.FontSize="14"
         FontFamily="pack://application:,,,/MaterialDesignThemes.Wpf;component/Resources/Roboto/#Roboto">
-    <Grid Margin="4px 8px">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="auto" />
-            <RowDefinition Height="auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="auto" />
-            <RowDefinition Height="auto" />
-            <RowDefinition Height="auto" />
-        </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="3*" />
-            <ColumnDefinition Width="5" />
-            <ColumnDefinition Width="1*" />
-        </Grid.ColumnDefinitions>
 
-        <Menu Grid.Row="0" Grid.ColumnSpan="3" Style="{StaticResource MaterialDesignMenu}">
-            <MenuItem Header="_Datei">
-                <MenuItem Header="_Laden" Click="LoadFile_Click" />
-                <MenuItem Header="_Speichern" Click="SaveFile_Click" InputGestureText="Ctrl+S" />
-                <Separator />
-                <MenuItem Header="_Beenden" Click="Exit_Click" />
-            </MenuItem>
+    <Window.DataContext>
+        <local:EditorViewModel />
+    </Window.DataContext>
 
-            <MenuItem Header="_Debug">
-                <MenuItem Header="Test: Einfacher Loop" Click="LoadDebugTemplate_Click" Tag="Loop" />
-                <MenuItem Header="Test: POCO Klasse" Click="LoadDebugTemplate_Click" Tag="Poco" />
-                <MenuItem Header="Test: Fehler-Stresstest" Click="LoadDebugTemplate_Click" Tag="Error" />
-            </MenuItem>
-            
-            <MenuItem Header="_Switch Theme" Click="SwitchEditorTheme"></MenuItem>
+    <Window.Resources>
+        <Style x:Key="ToolbarLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0 10" />
+            <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary}" />
+            <Setter Property="Opacity" Value="0.7" />
+        </Style>
 
-            <MenuItem Header="_About">
-                <MenuItem Header="Info" />
-                <MenuItem Header="Changelog" />
-            </MenuItem>
+        <DataTemplate x:Key="SnippetButtonTemplate">
+            <Button Tag="{Binding Tag}" 
+                ToolTip="{Binding ToolTip}"
+                Click="InsertSnippet_Click"
+                Height="32"
+                Margin="0,1"
+                HorizontalContentAlignment="Left"
+                Padding="8,0">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignToolButton}">
+                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Primary.Highlight}" />
+                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
 
-        </Menu>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="{Binding Icon}" 
+                        Width="18" 
+                        Height="18" 
+                        VerticalAlignment="Center"
+                        Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"/>
 
-        <StackPanel Orientation="Horizontal" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3">
-            <ToolBar>
-                <ToolBar.Header>Snippets</ToolBar.Header>
-                <Button Style="{StaticResource MaterialDesignFlatButton}" Margin="5px 0" Tag="Dir" Click="InsertSnippet_Click" ToolTip="T4 Template Directive">
-                    <materialDesign:PackIcon Kind="Xml" />
-                </Button>
+                    <TextBlock Text="{Binding Display}" 
+                       Margin="12,0,0,0" 
+                       VerticalAlignment="Center" 
+                       FontSize="12" />
+                </StackPanel>
+            </Button>
+        </DataTemplate>
 
-                <Button Style="{StaticResource MaterialDesignFlatButton}" Tag="Loop" Click="InsertSnippet_Click" ToolTip="For-Schleife (Umschließen)">
-                    <materialDesign:PackIcon Kind="Repeat" />
-                </Button>
+    </Window.Resources>
 
-                <Button Style="{StaticResource MaterialDesignFlatButton}" Tag="If" Click="InsertSnippet_Click" ToolTip="If-Bedingung (Umschließen)">
-                    <materialDesign:PackIcon Kind="CodeBraces" />
-                </Button>
+    <materialDesign:DialogHost x:Name="RootDialogHost" Identifier="MainDialogHost">
 
-                <Button Style="{StaticResource MaterialDesignFlatButton}" Tag="Expression" Click="InsertSnippet_Click" ToolTip="Ausdruck">
-                    <materialDesign:PackIcon Kind="CodeEqual" />
-                </Button>
+        <materialDesign:DialogHost.DialogContent>
+            <StackPanel Margin="24" Width="320">
+                <TextBlock Text="Save as Template" Style="{StaticResource MaterialDesignHeadline6TextBlock}" />
+                <TextBlock Text="Enter a name for the current T4 content:" Margin="0,8,0,0" Opacity="0.6" />
+                <TextBox x:Name="TemplateNameInput" Margin="0,16,0,0" 
+                    Style="{StaticResource MaterialDesignFloatingHintTextBox}" 
+                    materialDesign:HintAssist.Hint="Filename"
+                    materialDesign:TextFieldAssist.HasClearButton="True" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+                    <Button Content="CANCEL" Style="{StaticResource MaterialDesignFlatButton}" Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}" />
+                    <Button Content="SAVE" Style="{StaticResource MaterialDesignFlatButton}" Command="{x:Static materialDesign:DialogHost.CloseDialogCommand}"
+                        CommandParameter="{Binding ElementName=TemplateNameInput, Path=Text}" IsDefault="True" />
+                </StackPanel>
+            </StackPanel>
+        </materialDesign:DialogHost.DialogContent>
 
-                <Button Style="{StaticResource MaterialDesignFlatButton}" Tag="Comment" Click="InsertSnippet_Click" ToolTip="T4 Kommentar">
-                    <materialDesign:PackIcon Kind="CommentText" />
-                </Button>
-            </ToolBar>
-            <ToolBar>
-                <ToolBar.Header>Objects</ToolBar.Header>
-                <Button Style="{StaticResource MaterialDesignFlatButton}" Tag="Prop" Click="InsertSnippet_Click" ToolTip="C# Property">
-                    <materialDesign:PackIcon Kind="AlphaPBox" />
-                </Button>
+        <Grid Margin="4px 8px">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="auto" />
+                <RowDefinition Height="auto" />
+                <RowDefinition Height="auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="5" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-                <Button Style="{StaticResource MaterialDesignFlatButton}" Tag="Date" Click="InsertSnippet_Click" ToolTip="Datum">
-                    <materialDesign:PackIcon Kind="CalendarClock" />
-                </Button>
-            </ToolBar>
-        </StackPanel>
+            <Border Grid.Row="0" Grid.ColumnSpan="3" 
+                Background="{DynamicResource MaterialDesign.Brush.Card.Background}" 
+                BorderThickness="0,0,0,1" 
+                BorderBrush="{DynamicResource MaterialDesign.Brush.Separator}"
+                CornerRadius="5"
+                Margin="5 0">
 
-        <materialDesign:Card Grid.Row="2" Grid.Column="0" Margin="4" UniformCornerRadius="4" VerticalAlignment="Stretch">
-            <avalonEdit:TextEditor
-                x:Name="EditorInput"
-                Grid.Column="1"
-                ShowLineNumbers="True"
-                SyntaxHighlighting="C#"
-                TextChanged="EditorInput_TextChanged"
-                Background="LightGray"
-                Foreground="{DynamicResource MaterialDesignBody}" />
-        </materialDesign:Card>
+                <DockPanel LastChildFill="True">
+                    <Menu DockPanel.Dock="Left" Background="Transparent" VerticalAlignment="Center" Margin="4,0">
+                        <MenuItem Header="_FILE" FontSize="11" FontWeight="Bold" Height="32">
+                            <MenuItem Header="Open" Command="{Binding LoadCommand}" InputGestureText="Strg+O">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="FolderOpen" Width="18" Height="18" />
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="Save" Command="{Binding SaveCommand}" InputGestureText="Strg+S">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="ContentSave" Width="18" Height="18" />
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem Header="Exit" Command="{Binding ExitCommand}"  InputGestureText="Strg+X">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="ExitToApp" Width="18" Height="18" />
+                                </MenuItem.Icon>
+                            </MenuItem>
+                        </MenuItem>
 
-        <GridSplitter Grid.Row="2" Grid.Column="1" HorizontalAlignment="Center" Width="4" Background="Transparent"/>
+                        <MenuItem Header="_TEMPLATES" FontSize="11" FontWeight="Bold" Height="32">
+                            <MenuItem Header="Add current to Template..." Click="AddAsTemplate_Click">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="PlusBox" Width="18" Height="18" />
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <Separator />
 
-        <materialDesign:Card Grid.Row="2" Grid.Column="2" Margin="4" UniformCornerRadius="4" Background="{DynamicResource MaterialDesignBackground}">
-            <avalonEdit:TextEditor
-                x:Name="EditorOutput"
-                IsReadOnly="True"
-                ShowLineNumbers="True"
-                SyntaxHighlighting="C#"
-                Background="LightGray"
-                Foreground="{DynamicResource MaterialDesignBody}" />
-        </materialDesign:Card>
+                            <MenuItem x:Name="DynamicTemplatesMenuItem" Header="My Saved Templates">
+                                <MenuItem.Icon>
+                                    <materialDesign:PackIcon Kind="FolderStar" Width="18" Height="18" />
+                                </MenuItem.Icon>
+                            </MenuItem>
+                        </MenuItem>
 
-        <GridSplitter Grid.Row="3" Grid.ColumnSpan="3" Height="4" HorizontalAlignment="Stretch" Background="Transparent"/>
+                        <MenuItem Header="_OPTIONS" FontSize="11" FontWeight="Bold" Height="32">
+                            <MenuItem Header="Dark Mode" Click="SwitchEditorTheme" IsCheckable="True" IsChecked="True" />
+                        </MenuItem>
+                    </Menu>
 
-        <materialDesign:Card Grid.Row="4" Grid.ColumnSpan="3" Margin="4" Background="{DynamicResource MaterialDesignCardBackground}">
-            <ListView 
-                x:Name="ErrorList"                 
-                Style="{StaticResource MaterialDesignListView}"
-                SelectionMode="Single"
-                MouseDoubleClick="ErrorList_MouseDoubleClick">
-                <ListView.View>
-                    <GridView>
-                        <GridViewColumn Header="Zeile" DisplayMemberBinding="{Binding Line}" />
-                        <GridViewColumn Header="Spalte" DisplayMemberBinding="{Binding Column}" />
-                        <GridViewColumn Header="Beschreibung" DisplayMemberBinding="{Binding ErrorText}" />
-                    </GridView>
-                </ListView.View>
-            </ListView>
-        </materialDesign:Card>
+                </DockPanel>
+            </Border>
 
-        <StatusBar Grid.Row="5" Grid.ColumnSpan="3" Background="{DynamicResource PrimaryHueDarkBrush}" Foreground="White">
-            <StatusBarItem>
-                <TextBlock x:Name="StatusText" Text="Bereit" />
-            </StatusBarItem>
-        </StatusBar>
+            <Grid Grid.Row="1" Grid.Column="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0"
+                    Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                    BorderBrush="{DynamicResource MaterialDesign.Brush.Separator}"
+                    CornerRadius="5"
+                    Margin="5">
 
-    </Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Orientation="Vertical" Margin="4,10">
+
+                            <TextBlock Text="TEMPLATE" Style="{StaticResource ToolbarLabelStyle}" Margin="8,0,0,4"/>
+                            <ItemsControl ItemsSource="{Binding TemplateSnippets}" ItemTemplate="{StaticResource SnippetButtonTemplate}" Margin="0,0,0,12" />
+
+                            <TextBlock Text="CONTROL" Style="{StaticResource ToolbarLabelStyle}" Margin="8,0,0,4"/>
+                            <ItemsControl ItemsSource="{Binding ControlSnippets}" ItemTemplate="{StaticResource SnippetButtonTemplate}" Margin="0,0,0,12" />
+
+                            <TextBlock Text="OBJECTS" Style="{StaticResource ToolbarLabelStyle}" Margin="8,0,0,4"/>
+                            <ItemsControl ItemsSource="{Binding ObjectSnippets}" ItemTemplate="{StaticResource SnippetButtonTemplate}" />
+
+                        </StackPanel>
+                    </ScrollViewer>
+
+                </Border>
+                <materialDesign:Card Grid.Column="1" Margin="4" UniformCornerRadius="4" VerticalAlignment="Stretch">
+                    <avalonEdit:TextEditor x:Name="EditorInput"
+                        ShowLineNumbers="True"
+                        SyntaxHighlighting="C#"
+                        TextChanged="EditorInput_TextChanged"
+                        Background="LightGray"
+                        Foreground="{DynamicResource MaterialDesignBody}" />
+                </materialDesign:Card>
+
+            </Grid>
+
+            <GridSplitter Grid.Row="1" Grid.Column="1" HorizontalAlignment="Center" Width="4" Background="Transparent"/>
+
+            <materialDesign:Card Grid.Row="1" Grid.Column="2" Margin="4" UniformCornerRadius="4" Background="{DynamicResource MaterialDesignBackground}">
+                <avalonEdit:TextEditor x:Name="EditorOutput"
+                    IsReadOnly="True"
+                    ShowLineNumbers="True"
+                    SyntaxHighlighting="C#"
+                    Background="LightGray"
+                    Foreground="{DynamicResource MaterialDesignBody}" />
+            </materialDesign:Card>
+
+            <GridSplitter Grid.Row="2" Grid.ColumnSpan="3" Height="4" HorizontalAlignment="Stretch" Background="Transparent"/>
+
+            <materialDesign:Card Grid.Row="3" Grid.ColumnSpan="3" Margin="4" Background="{DynamicResource MaterialDesignCardBackground}">
+                <ListView x:Name="ErrorList"     
+                    ItemsSource="{Binding Errors}"
+                    Style="{StaticResource MaterialDesignListView}"
+                    SelectionMode="Single"
+                    MouseDoubleClick="ErrorList_MouseDoubleClick">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="Zeile" DisplayMemberBinding="{Binding Line}" />
+                            <GridViewColumn Header="Spalte" DisplayMemberBinding="{Binding Column}" />
+                            <GridViewColumn Header="Beschreibung" DisplayMemberBinding="{Binding ErrorText}" />
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </materialDesign:Card>
+
+            <StatusBar Grid.Row="4" Grid.ColumnSpan="3" Background="{DynamicResource PrimaryHueDarkBrush}" Foreground="White">
+                <StatusBarItem>
+                    <TextBlock x:Name="StatusText" Text="{Binding StatusText}" />
+                </StatusBarItem>
+            </StatusBar>
+
+        </Grid>
+    </materialDesign:DialogHost>
 </Window>
